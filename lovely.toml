@@ -1,0 +1,127 @@
+[manifest]
+version = "1.0.0"
+dump_lua = true
+priority = 0
+
+[[patches]]
+[patches.module]
+source = "jprof.lua"
+before = "main.lua"
+name = "jprof"
+
+[[patches]]
+[patches.module]
+source = "MessagePack.lua"
+before = "main.lua"
+name = "MessagePack"
+
+[[patches]]
+[patches.pattern]
+target = "conf.lua"
+pattern = "_RELEASE_MODE = true"
+position = "at"
+payload = '_RELEASE_MODE = false'
+match_indent = true
+overwrite = true
+
+[[patches]]
+[patches.pattern]
+target = "main.lua"
+pattern = "G:update(dt)"
+position = "before"
+payload = '''
+prof.enabled(PROF_ENABLED)
+PROF_LAST_FRAME = true
+PROF_IN_FRAME = true
+prof.push("frame")
+'''
+match_indent = true
+overwrite = true
+
+[[patches]]
+[patches.pattern]
+target = "main.lua"
+pattern = "G:update(dt)"
+position = "after"
+payload = '''
+prof.pop()
+prof.pop("frame")
+PROF_IN_FRAME = false
+'''
+match_indent = true
+overwrite = true
+
+[[patches]]
+[patches.pattern]
+target = "main.lua"
+pattern = "G:draw()"
+position = "before"
+payload = '''
+PROF_LAST_FRAME = true
+PROF_IN_FRAME = true
+prof.push("frame")
+'''
+match_indent = true
+overwrite = true
+
+[[patches]]
+[patches.pattern]
+target = "main.lua"
+pattern = "G:draw()"
+position = "after"
+payload = '''
+prof.pop()
+prof.pop("frame")
+PROF_IN_FRAME = false
+if PROF_SHOULD_WRITE then
+    prof.write("prof.mpack")
+    PROF_SHOULD_WRITE = false
+end
+
+'''
+match_indent = true
+overwrite = true
+
+# Performance profiler enabled by pressing v, prints results to console.
+[[patches]]
+[patches.pattern]
+target = "engine/controller.lua"
+pattern = '''if not G.prof then G.prof = require "engine/profile"; G.prof.start()'''
+position = "before"
+payload = '''
+PROF_ENABLED = not PROF_ENABLED
+if PROF_ENABLED then
+    PROF_LOGGER.log("Enabled profiler")
+    return
+else
+    PROF_LOGGER.log("Writing prof log")
+    PROF_SHOULD_WRITE = true
+    return
+end
+'''
+match_indent = true
+
+[[patches]]
+[patches.pattern]
+target = "functions/misc_functions.lua"
+pattern = '''function timer_checkpoint(label, type, reset)'''
+position = "after"
+payload = '''
+if PROF_IN_FRAME then
+    if not PROF_LAST_FRAME then
+        prof.pop()
+    else 
+        PROF_LAST_FRAME = false
+    end
+    prof.push(label)
+end
+'''
+match_indent = true
+
+[[patches]]
+[patches.copy]
+target = "main.lua"
+position = "prepend"
+sources = [
+	"injected.lua",
+]
