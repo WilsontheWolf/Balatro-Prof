@@ -24,63 +24,60 @@ payload = '_RELEASE_MODE = false'
 match_indent = true
 overwrite = true
 
-[[patches]]
-[patches.pattern]
-target = "main.lua"
-pattern = "G:update(dt)"
-position = "before"
-payload = '''
-prof.enabled(PROF_ENABLED)
-PROF_LAST_FRAME = true
-PROF_IN_FRAME = true
-prof.push("frame")
-'''
-match_indent = true
-overwrite = true
-
-[[patches]]
-[patches.pattern]
-target = "main.lua"
-pattern = "G:update(dt)"
-position = "after"
-payload = '''
-prof.pop()
-prof.pop("frame")
-PROF_IN_FRAME = false
-'''
-match_indent = true
-overwrite = true
-
-[[patches]]
-[patches.pattern]
-target = "main.lua"
-pattern = "G:draw()"
-position = "before"
-payload = '''
-PROF_LAST_FRAME = true
-PROF_IN_FRAME = true
-prof.push("frame")
-'''
-match_indent = true
-overwrite = true
-
-[[patches]]
-[patches.pattern]
-target = "main.lua"
-pattern = "G:draw()"
-position = "after"
-payload = '''
-prof.pop()
-prof.pop("frame")
-PROF_IN_FRAME = false
-if PROF_SHOULD_WRITE then
-    prof.write("prof.mpack")
-    PROF_SHOULD_WRITE = false
-end
-
-'''
-match_indent = true
-overwrite = true
+# [[patches]]
+# [patches.pattern]
+# target = "main.lua"
+# pattern = "G:update(dt)"
+# position = "before"
+# payload = '''
+# prof.enabled(PROF_ENABLED)
+# PROF_LAST_FRAME = true
+# prof.push("frame")
+# '''
+# match_indent = true
+# overwrite = true
+# 
+# [[patches]]
+# [patches.pattern]
+# target = "main.lua"
+# pattern = "G:update(dt)"
+# position = "after"
+# payload = '''
+# PROF_IN_FRAME = false
+# prof.popAll()
+# '''
+# match_indent = true
+# overwrite = true
+# 
+# [[patches]]
+# [patches.pattern]
+# target = "main.lua"
+# pattern = "G:draw()"
+# position = "before"
+# payload = '''
+# PROF_LAST_FRAME = true
+# PROF_IN_FRAME = true
+# prof.push("frame")
+# '''
+# match_indent = true
+# overwrite = true
+# 
+# [[patches]]
+# [patches.pattern]
+# target = "main.lua"
+# pattern = "G:draw()"
+# position = "after"
+# payload = '''
+# PROF_IN_FRAME = false
+# prof.popAll()
+# if PROF_SHOULD_WRITE then
+#     prof.write("prof.mpack")
+#     PROF_SHOULD_WRITE = false
+# end
+# 
+# '''
+# match_indent = true
+# overwrite = true
 
 # Performance profiler enabled by pressing v, prints results to console.
 [[patches]]
@@ -92,28 +89,18 @@ payload = '''
 PROF_ENABLED = not PROF_ENABLED
 if PROF_ENABLED then
     PROF_LOGGER.log("Enabled profiler")
+    prof.enabled(PROF_ENABLED)
+    prof.push("frame")
+    PROF_IN_FRAME = true
     return
 else
     PROF_LOGGER.log("Writing prof log")
-    PROF_SHOULD_WRITE = true
+    -- PROF_SHOULD_WRITE = true
+    PROF_IN_FRAME = false
+    prof.popAll()
+    prof.enabled(false)
+    prof.write("prof.mpack")
     return
-end
-'''
-match_indent = true
-
-[[patches]]
-[patches.pattern]
-target = "functions/misc_functions.lua"
-pattern = '''function timer_checkpoint(label, type, reset)'''
-position = "after"
-payload = '''
-if PROF_IN_FRAME then
-    if not PROF_LAST_FRAME then
-        prof.pop()
-    else 
-        PROF_LAST_FRAME = false
-    end
-    prof.push(label)
 end
 '''
 match_indent = true
